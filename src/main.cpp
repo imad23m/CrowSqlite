@@ -17,6 +17,8 @@ std::string result;
 
 int request_sqlite_callback(void* args, int size, char** name, char** content){
 
+std::cout << size << " Size\n";
+
 result = "{";
     for (int i = 0; i < size; ++i){
         result+="\n\b";
@@ -33,16 +35,50 @@ result = "{";
 }
 
 
+
+
 const char* url_decoder(std::string& url_encoded_string){
+
+    size_t p_position = url_encoded_string.find('%');
+    if (p_position > url_encoded_string.size()){
+        return url_encoded_string.c_str();
+    }
+
+    while(p_position < url_encoded_string.length()){
+        std::cout << p_position << "\n";
+        if (url_encoded_string[p_position+1] == '2'){
+                if (url_encoded_string[p_position+2] == '0'){
+                    url_encoded_string[p_position] = ' ';
+                }
+
+                if (url_encoded_string[p_position+2] == '2'){
+                    url_encoded_string[p_position] = '"';
+                }
+                url_encoded_string.erase(url_encoded_string.begin()+p_position+1,url_encoded_string.begin()+p_position+3);
+                p_position = url_encoded_string.find('%');
+            }
+    }
+
+    return url_encoded_string.c_str();
+    // TODO: Compare both in terms of performance.
     int size = url_encoded_string.length();
 
     for (int i = 0; i < size; ++i){
+
         if (url_encoded_string[i] == '%'){
-            if (url_encoded_string[i+1] == '2' && url_encoded_string[i+2] == '0'){
-                url_encoded_string.erase(url_encoded_string.begin()+i+2);
-                url_encoded_string.erase(url_encoded_string.begin()+i+1);
-                url_encoded_string[i] = ' ';
-                i+=3;
+            if (url_encoded_string[i+1] == '2'){
+
+                if (url_encoded_string[i+1] == '0'){
+                    url_encoded_string[i] = ' ';
+                }
+
+                if (url_encoded_string[i+1] == '2'){
+                    url_encoded_string[i] = '"';
+                }
+                url_encoded_string.erase(url_encoded_string.begin()+i+1,url_encoded_string.begin()+i+2);
+                size-= 2;
+
+
             }
         }
     }
