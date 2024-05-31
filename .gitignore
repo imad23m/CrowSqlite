@@ -1,0 +1,10 @@
+# Compile folder
+build
+
+# VsCode config folder
+
+.vscode
+
+# DEVS
+
+test.db
