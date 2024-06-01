@@ -12,23 +12,24 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 
 
 sqlite3* db;
-char* sqlite_err = nullptr;
-std::string result;
+//char* sqlite_err = nullptr;
+//std::string result;
 
-int request_sqlite_callback(void* args, int size, char** name, char** content){
+int request_sqlite_callback(void* args, int size, char** content, char** name){
 
 std::cout << size << " Size\n";
+std::string* result = (std::string*)args;
 
-result = "{";
+result->append("{");
     for (int i = 0; i < size; ++i){
-        result+="\n\b";
-        result+=name[i];
-        result+= " : ";
-        result+= content[i];
-        result+=",";
+        result->append("\n\t\"");
+        result->append(name[i]);
+        result->append( "\" : \"");
+        result->append( content[i]);
+        result->append("\",");
     }
-    result.pop_back();
-    result += "\n}";
+    result->pop_back();
+    result ->append( "\n}");
 
     return 0;
 
@@ -86,19 +87,23 @@ const char* url_decoder(std::string& url_encoded_string){
     return url_encoded_string.c_str();
 }
 
-int request_sqlite(std::string sql){
+int request_sqlite(std::string sql, std::string &result, int &crow_err){
 
     const char* sql_c = url_decoder(sql);    
-
+    char* sqlite_err = nullptr;
+    
     std::cout << "Requesting: " << sql_c << "\n";
-    int err = sqlite3_exec(db,sql_c,request_sqlite_callback,nullptr, &sqlite_err);
+    int err = sqlite3_exec(db,sql_c,request_sqlite_callback,&result, &sqlite_err);
     std::cout << "Done\n";
         std::cout << result << "\n";
+        
 
     if (err == SQLITE_OK){
         return 0;
     } else{
         std::cout << "[SQLITE3][ERROR] " << sqlite_err << "\n";
+        crow_err = 1;
+        result = sqlite_err;
         return 1;
 
     }
@@ -110,7 +115,8 @@ int request_sqlite(std::string sql){
 int main(){
     std::cout << "Initalizing CrowSqlite 0.1v-pre-alpha";
 
-    if(!sqlite3_open_v2("../test.db",&db,SQLITE_OPEN_READWRITE,nullptr)){
+    if(sqlite3_open_v2("C:/Users/Work/Documents/CrowSqlite/test.db",&db,SQLITE_OPEN_READWRITE,nullptr) != SQLITE_OK){
+        std::cout << sqlite3_open_v2("C:/Users/Work/Documents/CrowSqlite/test.db",&db,SQLITE_OPEN_READWRITE,nullptr);
         throw std::runtime_error("Failed to open Database File");
     }
 
@@ -125,11 +131,16 @@ int main(){
 
 
     CROW_ROUTE(crowsqlite, "/api/<string>")([](std::string sql){        
+        std::string result = "";
+        int crow_err = 0;
+        request_sqlite(sql, result, crow_err);
+        if(!crow_err){
+            std::cout << result.c_str() << "Done here";
 
-        if(!request_sqlite(sql)){
-            return (const char*)sqlite_err;
+            return result;
         }else{
-        return result.c_str();
+            std::cout << result.c_str() << "Done here";
+        return result;
         }
     });
 
