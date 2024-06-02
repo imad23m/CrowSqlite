@@ -35,14 +35,15 @@ result->append("{");
 }*/
 
 
-int index = 0; // TODO: make it function varaible, probably std::pair?
-
 int request_sqlite_callback(void* args, int size, char** content, char** name){
 
-std::string* result = (std::string*)args;
+std::string* result = (std::string*)(((void **)args)[0]);
+    int* index = (int*)(((void **)args)[1]);
+
     result->append("\n\t\"");
-    result->append(std::to_string(index));
-    ++index;
+    result->append(std::to_string(*index));
+    //*index +=1;
+    ++*index;
     result->append("\" : {");
 
     for (int i = 0; i < size; ++i){
@@ -59,43 +60,11 @@ std::string* result = (std::string*)args;
 }
 
 
-
-
 const char* url_decoder(std::string& url_encoded_string){
-    
-    
-     ////////// This method is VERY slow compare to the one used now ///////////
-    /*std::chrono::time_point t= std::chrono::high_resolution_clock::now();
-    size_t p_position = url_encoded_string.find('%');
-    if (p_position > url_encoded_string.size()){
-        return url_encoded_string.c_str();
-    }
 
-    while(p_position < url_encoded_string.length()){
-        std::cout << p_position << "\n";
-        if (url_encoded_string[p_position+1] == '2'){
-                if (url_encoded_string[p_position+2] == '0'){
-                    url_encoded_string[p_position] = ' ';
-                }
-
-                if (url_encoded_string[p_position+2] == '2'){
-                    url_encoded_string[p_position] = '"';
-                }
-                url_encoded_string.erase(url_encoded_string.begin()+p_position+1,url_encoded_string.begin()+p_position+3);
-                p_position = url_encoded_string.find('%');
-            }
-    }
-        std::chrono::time_point e= std::chrono::high_resolution_clock::now();
-    std::cout << std::chrono::duration((e-t)) << " Time";
-    return url_encoded_string.c_str();
-*/
-//////////////////////////////////////////////////////////////////////
-
-// Retest this:
     int size = url_encoded_string.length();
 
     for (int i = 0; i < size; ++i){
-
         if (url_encoded_string[i] == '%'){
             if (url_encoded_string[i+1] == '2'){
 
@@ -111,25 +80,23 @@ const char* url_decoder(std::string& url_encoded_string){
             }
         }
     }
-
     return url_encoded_string.c_str();
 }
 
 int request_sqlite(sqlite3* &db, std::string sql, std::string &result, int &crow_err){
-    index = 0;
 
     const char* sql_c = url_decoder(sql);    
     char* sqlite_err = nullptr;
     int err = 0;
-    if(true){
-        result = "{";
-        err = sqlite3_exec(db,sql_c,request_sqlite_callback,&result, &sqlite_err);
-        if (result != "{")
-             result.pop_back();
-        result += "\n}";
-        }
-    else
-        err = sqlite3_exec(db,sql_c,request_sqlite_callback,&result, &sqlite_err);        
+    int index = 0;
+
+    void* arguments[2] = {&result, &index};
+
+    result = "{";
+    err = sqlite3_exec(db,sql_c,request_sqlite_callback,&arguments, &sqlite_err);
+    if (result != "{")
+         result.pop_back();
+    result += "\n}";
 
     if (err == SQLITE_OK){
         return 0;
@@ -138,7 +105,6 @@ int request_sqlite(sqlite3* &db, std::string sql, std::string &result, int &crow
         crow_err = 1;
         result = sqlite_err;
         return 1;
-
     }
 }
 
@@ -163,15 +129,9 @@ int main(int argc, char** argv){
         throw std::runtime_error("Failed to open Database File");
     }
 
-
     crow::SimpleApp crowsqlite;
 
-
     crowsqlite.port(12000);
-
-
-    //crowsqlite.loglevel(crow::LogLevel::Debug);
-
 
     CROW_ROUTE(crowsqlite, "/api/<string>")([&](std::string sql){        
         std::string result = "";
@@ -181,12 +141,11 @@ int main(int argc, char** argv){
             return result;
         }else{
             result = "";
-            return result; // Should we send the message or not?
+            return result; // Should we send the message or not? PROS: one could debug using browers | CONS: it could lead to an unexpected error depending on 
+                            // the software it will handle its output, probably a json detection in the target software will do the job.
         }
     });
 
     crowsqlite.multithreaded().run();
     return 0;
-
-        
 }
