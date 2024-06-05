@@ -114,15 +114,30 @@ int request_sqlite(sqlite3* &db, std::string sql, std::string &result, int &crow
 int main(int argc, char** argv){
 
     std::string PATH; // NEED absolute path, TODO: Fix this
-    argc-=1;
+    int PORT = 12000;
+   // argc-=1;
     for (int i = 1 ; i < argc ; ++i){
-        if (!strcmp(argv[i],"-p")){
+        std::cout << argv[i] << "\n";
+        if (!strcmp(argv[i],"-d")){
             PATH = argv[i+1];
             ++i;
         }
+
+        if (!strcmp(argv[i],"-p")){
+            PORT = std::__cxx11::stoi(argv[i+1]); // Maybe we should find another solution
+            ++i;
+        }
+
+        if (!strcmp(argv[i],"-h")){
+            std::cout << "CrowSqlite 0.1v\nMinimal Sqlite Server\n\nArgument List:\n\n\t -d\t\t Absolute path to the database file\n\t -p\t\t Port Number (Default: 12000)\n\t -h\t\t Print help text\n\n";
+            return 0;
+        }
     }
 
-    std::cout << "Initalizing CrowSqlite 0.1v-alpha";
+    std::cout << "Initalizing CrowSqlite 0.1v";
+    if(PATH.empty()){
+        std::cout << "ERROR: No path for database file specified, please use argument -d PATH.\n";
+    }
     sqlite3* db;
 
     if(sqlite3_open_v2(PATH.c_str(),&db,SQLITE_OPEN_READWRITE,nullptr) != SQLITE_OK){
@@ -130,8 +145,8 @@ int main(int argc, char** argv){
     }
 
     crow::SimpleApp crowsqlite;
-
-    crowsqlite.port(12000);
+    crowsqlite.loglevel(crow::LogLevel::Critical);
+    crowsqlite.port(PORT);
 
     CROW_ROUTE(crowsqlite, "/api/<string>")([&](std::string sql){        
         std::string result = "";
@@ -145,7 +160,6 @@ int main(int argc, char** argv){
                             // the software it will handle its output, probably a json detection in the target software will do the job.
         }
     });
-
     crowsqlite.multithreaded().run();
     return 0;
 }
