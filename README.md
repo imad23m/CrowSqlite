@@ -1,6 +1,6 @@
 # ![logo](crowsqlite_logo.png)
 
-`CrowSqlite` is a Minimal SQLite server intended to run locally and operated by a specific software to be used as a simple database.
+`CrowSqlite` is a **Minimal SQLite3 Restful Database Server** intended to run locally and operated by a specific software to be used as a simple database.
 
 
 # Compiling
@@ -55,7 +55,7 @@ Some feature plans for `CrowSqlite` include
 - [ ] Find a minimal and optimal replacement for `<string>`
 - [ ] Support for other platforms
 - [ ] Improve compile optimization flags
-- [ ] Include colored output (only if it doesn't add bloat)
+- [ ] Include colored output (**only if it doesn't add bloat**)
 
 # License
 `CrowSqlite` is licensed under MIT license.
