@@ -7,14 +7,77 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 #include "../deps/crow/crow_all.h"
 #include "../deps/sqlite-amalgamation/sqlite3.h"
 
+#define CSQL_CONSOLE_PRINT // Enables Console logging | useful if you don't care about console logs
+#define CSQL_HTTP_LOGGER // Enables the view of logs using /logs url
+#define CSQL_EXEC_SQL // Enables execution of SQL queries using /sql
+#define CSQL_PREPARE_SQL // Enables Preparing and using Sqlite3 statements
+
+#ifdef CSQL_CONSOLE_PRINT
+
 #include <iostream>
+#define log_print(message)                 \
+    {                                      \
+        std::cout << message << std::endl; \
+    }
+#elif
+#define log_print(message) \
+    {                      \
+    }
+#endif
+
 #include <string>
+
+class http_logger : public crow::ILogHandler {
+public:
+    static inline std::string logs;
+    void log(std::string message, crow::LogLevel level)
+    {
+        log_print(message);
+        logs += message;
+        logs += "\n";
+    }
+};
+
+#ifdef CSQL_HTTP_LOGGER
+#define http_logger_f()                 \
+    {                                   \
+        http_logger l;                  \
+        crow::logger::setHandler(&l);   \
+        CROW_ROUTE(crowsqlite, "/logs") \
+        ([&]() { return l.logs; });     \
+    }
+#elif
+#define http_logger_f() \
+    {                   \
+    }
+#endif
+
+#ifdef CSQL_EXEC_SQL
+#define sql()                                   \
+    {                                           \
+        CROW_ROUTE(crowsqlite, "/sql/<string>") \
+        ([&](std::string sql) {std::string result = "";int crow_err = 0;request_sqlite(db, sql, result, crow_err);if (!crow_err) {return result;} else {result = "";return result;} });             \
+    }
+#elif
+#define sql(){}
+#endif
+
+
+#ifdef CSQL_PREPARE_SQL
+#define prepare(){CROW_ROUTE(crowsqlite, "/pre/<string>")([&](std::string sql) {sqlite3_stmt* statement;const char* sql_c = url_decoder(sql);std::string result = "";int err = sqlite3_prepare(db, sql_c, -1, &statement, nullptr);if (err != SQLITE_OK) {result = "Sqlite3 Error code: " + std::to_string(err);return result;} else {statements.push_back(statement);return result; }});}
+#define use(){CROW_ROUTE(crowsqlite, "/use/<int>")([&](int index) {int err;std::string result = "{";int index_c = 0;do {err = sqlite3_step(statements[index]);if (err == SQLITE_ROW) {int size = sqlite3_column_count(statements[index]);result += "\n\t\"";result += std::to_string(index_c);result += "\" : {";for (int i = 0; i < size; ++i) {result += "\n\t\t\"";result += sqlite3_column_name(statements[index], i);result += "\" : \"";result += (const char*)sqlite3_column_text(statements[index], i);result += "\",";}result.pop_back();result += "\n\t\t},";}++index_c;} while (err != SQLITE_DONE);if (result != "{")result.pop_back();result += "\n}";sqlite3_reset(statements[index]);return result;});}
+#elif
+#define prepare(){}
+#define use(){}
+#endif
+
+
+
 
 
 /*
 int request_sqlite_callback(void* args, int size, char** content, char** name){
 
-std::cout << size << " Size\n";
 std::string* result = (std::string*)args;
 
 result->append("{");
@@ -98,7 +161,10 @@ int request_sqlite(sqlite3*& db, std::string sql, std::string& result, int& crow
     if (err == SQLITE_OK) {
         return 0;
     } else {
-        std::cout << "[SQLITE3][ERROR] " << sqlite_err << "\n";
+        std::string error = "[SQLITE3][ERROR] ";
+        error += sqlite_err;
+        log_print(error.c_str());
+
         crow_err = 1;
         result = sqlite_err;
         return 1;
@@ -112,7 +178,6 @@ int main(int argc, char** argv)
     int PORT = 12000;
     // argc-=1;
     for (int i = 1; i < argc; ++i) {
-        std::cout << argv[i] << "\n";
         if (!strcmp(argv[i], "-d")) {
             PATH = argv[i + 1];
             ++i;
@@ -124,97 +189,47 @@ int main(int argc, char** argv)
         }
 
         if (!strcmp(argv[i], "-h")) {
-            std::cout << "CrowSqlite 0.1v\nMinimal Sqlite Server\n\nArgument List:\n\n\t "
-                         "-d\t\t Absolute path to the database file\n\t -p\t\t Port Number "
-                         "(Default: 12000)\n\t -h\t\t Print help text\n\n";
+            //  std::cout << "CrowSqlite 0.3v\nMinimal Sqlite Server\n\nArgument List:\n\n\t "
+            //             "-d\t\t Absolute path to the database file\n\t -p\t\t Port Number "
+            //           "(Default: 12000)\n\t -h\t\t Print help text\n" << std::endl;
+            log_print("CrowSqlite 0.3v\nMinimal Sqlite Server\n\nArgument List:\n\n\t -d\t\t Absolute path to the database file\n\t -p\t\t Port Number (Default: 12000)\n\t -h\t\t Print help text\n");
             return 0;
         }
     }
+    log_print("Initalizing CrowSqlite 0.3v");
+    // std::cout << "Initalizing CrowSqlite 0.3v" << std::endl;
 
-    std::cout << "Initalizing CrowSqlite 0.1v";
     if (PATH.empty()) {
-        std::cout << "ERROR: No path for database file specified, please use "
-                     "argument -d PATH.\n";
+        log_print("ERROR: No path for database file specified, please use argument -d PATH.");
+        // std::cout << "ERROR: No path for database file specified, please use argument -d PATH." << std::endl;
         return 1;
     }
-    
+
     sqlite3* db;
     std::vector<sqlite3_stmt*> statements;
 
     if (sqlite3_open_v2(PATH.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("Failed to open Database File");
+        log_print("Failed to open Database File");
+        //  throw std::runtime_error("Failed to open Database File");
+        return 1;
     }
 
     crow::SimpleApp crowsqlite;
-    crowsqlite.loglevel(crow::LogLevel::Critical);
-    crowsqlite.port(PORT);
-    
 
-    CROW_ROUTE(crowsqlite, "/pre/<string>")
-    ([&](std::string sql) {
-        sqlite3_stmt* statement;
-        const char* sql_c = url_decoder(sql);
-        std::string result = "";
+    prepare();
+    use();
+    sql();
+    http_logger_f();
 
-        int err = sqlite3_prepare(db, sql_c, -1, &statement, nullptr);
-        if (err != SQLITE_OK) {
-            result = "Sqlite3 Error code: " + std::to_string(err);
-            return result;
-        } else {
-            statements.push_back(statement);
-            return result; // Still can't find a good return statement
-        }
-    });
+    crowsqlite
+    .loglevel(crow::LogLevel::Info)
+    .port(PORT)
+    .server_name("CrowSqlite")
+    .multithreaded()
+    .run();
 
-    CROW_ROUTE(crowsqlite, "/use/<int>")
-    ([&](int index) {
-        int err;
-        std::string result = "{";
-        int index_c = 0;
-        do {
-            err = sqlite3_step(statements[index]);
-            if (err == SQLITE_ROW) {
-                int size = sqlite3_column_count(statements[index]);
-
-                result += "\n\t\"";
-                result += std::to_string(index_c);
-                result += "\" : {";
-                for (int i = 0; i < size; ++i) {
-                    result += "\n\t\t\"";
-                    result += sqlite3_column_name(statements[index], i);
-                    result += "\" : \"";
-                    result += (const char*)sqlite3_column_text(statements[index], i);
-                    result += "\",";
-                }
-                result.pop_back();
-                result += "\n\t\t},";
-            }
-            ++index_c;
-        } while (err != SQLITE_DONE);
-        if (result != "{")
-            result.pop_back();
-        result += "\n}";
-
-        sqlite3_reset(statements[index]);
-        return result;
-    });
-
-    CROW_ROUTE(crowsqlite, "/sql/<string>")
-    ([&](std::string sql) {
-        std::string result = "";
-        int crow_err = 0;
-        request_sqlite(db, sql, result, crow_err);
-        if (!crow_err) {
-            return result;
-        } else {
-            result = "";
-            return result;
-        }
-    });
-    crowsqlite.multithreaded().run();
-    
     int stmt_size = statements.size();
-    for (int i = 0; i < stmt_size ; ++i){
+    for (int i = 0; i < stmt_size; ++i) {
         sqlite3_finalize(statements[i]);
     }
     statements.clear();
