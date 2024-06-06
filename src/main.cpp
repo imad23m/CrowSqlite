@@ -189,13 +189,13 @@ int main(int argc, char** argv)
                 result.pop_back();
                 result += "\n\t\t},";
             }
-
             ++index_c;
         } while (err != SQLITE_DONE);
         if (result != "{")
             result.pop_back();
         result += "\n}";
-        std::cout << result << "\n";
+
+        sqlite3_reset(statements[index]);
         return result;
     });
 
@@ -212,5 +212,13 @@ int main(int argc, char** argv)
         }
     });
     crowsqlite.multithreaded().run();
+    
+    int stmt_size = statements.size();
+    for (int i = 0; i < stmt_size ; ++i){
+        sqlite3_finalize(statements[i]);
+    }
+    statements.clear();
+    sqlite3_close_v2(db);
+
     return 0;
 }
