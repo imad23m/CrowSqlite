@@ -10,8 +10,6 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 #include <iostream>
 #include <string>
 
-// char* sqlite_err = nullptr;
-// std::string result;
 
 /*
 int request_sqlite_callback(void* args, int size, char** content, char** name){
@@ -139,31 +137,32 @@ int main(int argc, char** argv)
                      "argument -d PATH.\n";
         return 1;
     }
+    
     sqlite3* db;
+    std::vector<sqlite3_stmt*> statements;
 
     if (sqlite3_open_v2(PATH.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to open Database File");
     }
 
     crow::SimpleApp crowsqlite;
-    // crowsqlite.loglevel(crow::LogLevel::Critical);
+    crowsqlite.loglevel(crow::LogLevel::Critical);
     crowsqlite.port(PORT);
-    std::vector<sqlite3_stmt*> statements;
+    
 
     CROW_ROUTE(crowsqlite, "/pre/<string>")
     ([&](std::string sql) {
         sqlite3_stmt* statement;
         const char* sql_c = url_decoder(sql);
-        std::cout << "Going to prepare\n";
-        if (sqlite3_prepare(db, sql_c, -1, &statement, nullptr) != SQLITE_OK) {
-            return "Error";
+        std::string result = "";
+
+        int err = sqlite3_prepare(db, sql_c, -1, &statement, nullptr);
+        if (err != SQLITE_OK) {
+            result = "Sqlite3 Error code: " + std::to_string(err);
+            return result;
         } else {
-            std::cout << "Going to done\n";
-            if (statements.empty()) {
-                std::cout << "Impressive, its empty\n";
-            }
             statements.push_back(statement);
-            return "Done";
+            return result; // Still can't find a good return statement
         }
     });
 
