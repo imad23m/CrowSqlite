@@ -4,7 +4,7 @@ CXX=g++
 CC=gcc
 OUTPUT=./build/crowsqlite.exe
 
-CC_CXX_FLAGS= -O3 -std=c++23 # -march=native
+CC_CXX_FLAGS= -O2 -std=c++23 # -march=native
 
 SQLITE3_LIB=deps/sqlite-amalgamation/sqlite.lib
 SQLITE3_LIB_NAME=sqlite

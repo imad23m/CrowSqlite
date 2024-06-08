@@ -11,6 +11,7 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 #define CSQL_HTTP_LOGGER // Enables the view of logs using /logs url
 #define CSQL_EXEC_SQL // Enables execution of SQL queries using /sql
 #define CSQL_PREPARE_SQL // Enables Preparing and using Sqlite3 statements
+#define CSQL_EXIT_COM // Enables the ability to shutdown the server using a request
 
 #define RESPONSE_HEADERS(res)                               \
     {                                                       \
@@ -24,7 +25,7 @@ MIT License | Copyright (c) 2024 Imad Laggoune
     {                                      \
         std::cout << message << std::endl; \
     }
-#elif
+#else
 #define log_print(message) \
     {                      \
     }
@@ -49,9 +50,9 @@ public:
         http_logger l;                  \
         crow::logger::setHandler(&l);   \
         CROW_ROUTE(crowsqlite, "/logs") \
-        ([&]() { return l.logs; });     \
+        ([&]() {crow::response res; RESPONSE_HEADERS(res); res.write(l.logs); return res; });     \
     }
-#elif
+#else
 #define http_logger_f() \
     {                   \
     }
@@ -64,7 +65,7 @@ public:
         ([&](std::string sql) {std::string result = "";int crow_err = 0;request_sqlite(db, sql, result, crow_err);  \
         if (crow_err) {result = "";} crow::response res; RESPONSE_HEADERS(res); res.write(result); return res; });             \
     }
-#elif
+#else
 #define sql() \
     {         \
     }
@@ -79,14 +80,14 @@ public:
 #define use()                                \
     {                                        \
         CROW_ROUTE(crowsqlite, "/use/<int>") \
-        ([&](int index) {int err;std::string result = "{";int index_c = 0;do {err = sqlite3_step(statements[index]);if (err == SQLITE_ROW) {int size = sqlite3_column_count(statements[index]);result += "\n\t\"";result += std::to_string(index_c);result += "\" : {";for (int i = 0; i < size; ++i) {result += "\n\t\t\"";result += sqlite3_column_name(statements[index], i);result += "\" : \"";result += (const char*)sqlite3_column_text(statements[index], i);result += "\",";}result.pop_back();result += "\n\t\t},";}++index_c;} while (err != SQLITE_DONE);if (result != "{")result.pop_back();result += "\n}";sqlite3_reset(statements[index]);return result; });                \
-    }
+        ([&](int index) {int err;std::string result = "{";int index_c = 0;do {err = sqlite3_step(statements[index]);if (err == SQLITE_ROW) {int size = sqlite3_column_count(statements[index]);result += "\n\t\"";result += std::to_string(index_c);result += "\" : {";for (int i = 0; i < size; ++i) {result += "\n\t\t\"";result += sqlite3_column_name(statements[index], i);result += "\" : \"";result += (const char*)sqlite3_column_text(statements[index], i);result += "\",";}result.pop_back();result += "\n\t\t},";}++index_c;} while (err != SQLITE_DONE);if (result != "{")result.pop_back();result += "\n}";sqlite3_reset(statements[index]); crow::response res; RESPONSE_HEADERS(res); res.write(result); return res;});                \
+    } // [FATAL] [TODO]: Add checking for failture
 #define clean()                           \
     {                                     \
         CROW_ROUTE(crowsqlite, "/clean/") \
         ([&]() {crow::response res; RESPONSE_HEADERS(res); int stmt_size = statements.size(); if(stmt_size == 0) return res; for (int i = 0; i < stmt_size; ++i) {sqlite3_finalize(statements[i]);}statements.clear();return res; });                      \
     }
-#elif
+#else
 #define prepare() \
     {             \
     }
@@ -98,6 +99,11 @@ public:
     }
 #endif
 
+#ifdef CSQL_EXIT_COM
+#define exit(){CROW_ROUTE(crowsqlite, "/exit/")([&]() {crowsqlite.stop(); crow::response res; RESPONSE_HEADERS(res);  return res;});}
+#else
+#define exit(){}
+#endif
 /*
 int request_sqlite_callback(void* args, int size, char** content, char** name){
 
@@ -244,6 +250,9 @@ int main(int argc, char** argv)
 
     sql();
     http_logger_f();
+
+    exit();
+
 
     crowsqlite
         .loglevel(crow::LogLevel::Info)

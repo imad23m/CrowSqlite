@@ -14,6 +14,7 @@ Current flags include:
 #define CSQL_HTTP_LOGGER // Enables the view of logs using /logs url
 #define CSQL_EXEC_SQL // Enables execution of SQL queries using /sql
 #define CSQL_PREPARE_SQL // Enables Preparing and using Sqlite3 statements
+#define CSQL_EXIT_COM // Enables the ability to shutdown the server using a request
 ```
 
 Note: By default all flags are enabled, if you wish to disable them, you need to edit `main.cpp`, and comment the `#define` for the corresponding flag.
@@ -29,6 +30,9 @@ If you enabled `CSQL_PREPARE_SQL` You could prepare an Sqlite3 statement using `
 If you enabled `CSQL_HTTP_LOGGER` You could fetch logs using HTTP by using `localhost:PORT/logs`
 
 If you enabled `CSQL_CONSOLE_PRINT` logs will be printed on the console.
+
+If you enabled `CSQL_EXIT_COM` you will be able to shutdown the server thought `/exit/`
+
 
 # Arguments
 
@@ -46,7 +50,7 @@ Argument List:
 
 # TODO
 
-Some feature plans for `CrowSqlite` include
+Some feature plans for `CrowSqlite` include:
 
 - [ ] Remove absolute path limitation
 - [ ] Include Protocols other than HTTP
