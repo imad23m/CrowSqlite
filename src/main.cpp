@@ -12,6 +12,11 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 #define CSQL_EXEC_SQL // Enables execution of SQL queries using /sql
 #define CSQL_PREPARE_SQL // Enables Preparing and using Sqlite3 statements
 
+#define RESPONSE_HEADERS(res)                               \
+    {                                                       \
+        res.set_header("Access-Control-Allow-Origin", "*"); \
+    }
+
 #ifdef CSQL_CONSOLE_PRINT
 
 #include <iostream>
@@ -56,24 +61,42 @@ public:
 #define sql()                                   \
     {                                           \
         CROW_ROUTE(crowsqlite, "/sql/<string>") \
-        ([&](std::string sql) {std::string result = "";int crow_err = 0;request_sqlite(db, sql, result, crow_err);if (!crow_err) {return result;} else {result = "";return result;} });             \
+        ([&](std::string sql) {std::string result = "";int crow_err = 0;request_sqlite(db, sql, result, crow_err);  \
+        if (crow_err) {result = "";} crow::response res; RESPONSE_HEADERS(res); res.write(result); return res; });             \
     }
 #elif
-#define sql(){}
+#define sql() \
+    {         \
+    }
 #endif
-
 
 #ifdef CSQL_PREPARE_SQL
-#define prepare(){CROW_ROUTE(crowsqlite, "/pre/<string>")([&](std::string sql) {sqlite3_stmt* statement;const char* sql_c = url_decoder(sql);std::string result = "";int err = sqlite3_prepare(db, sql_c, -1, &statement, nullptr);if (err != SQLITE_OK) {result = "Sqlite3 Error code: " + std::to_string(err);return result;} else {statements.push_back(statement);return result; }});}
-#define use(){CROW_ROUTE(crowsqlite, "/use/<int>")([&](int index) {int err;std::string result = "{";int index_c = 0;do {err = sqlite3_step(statements[index]);if (err == SQLITE_ROW) {int size = sqlite3_column_count(statements[index]);result += "\n\t\"";result += std::to_string(index_c);result += "\" : {";for (int i = 0; i < size; ++i) {result += "\n\t\t\"";result += sqlite3_column_name(statements[index], i);result += "\" : \"";result += (const char*)sqlite3_column_text(statements[index], i);result += "\",";}result.pop_back();result += "\n\t\t},";}++index_c;} while (err != SQLITE_DONE);if (result != "{")result.pop_back();result += "\n}";sqlite3_reset(statements[index]);return result;});}
+#define prepare()                               \
+    {                                           \
+        CROW_ROUTE(crowsqlite, "/pre/<string>") \
+        ([&](std::string sql) {sqlite3_stmt* statement;const char* sql_c = url_decoder(sql);std::string result = "";int err = sqlite3_prepare(db, sql_c, -1, &statement, nullptr); crow::response res; RESPONSE_HEADERS(res);if (err != SQLITE_OK) {result = "Sqlite3 Error code: " + std::to_string(err); res.write(result); return res;} else {statements.push_back(statement); res.write(result); return res; }});             \
+    }
+#define use()                                \
+    {                                        \
+        CROW_ROUTE(crowsqlite, "/use/<int>") \
+        ([&](int index) {int err;std::string result = "{";int index_c = 0;do {err = sqlite3_step(statements[index]);if (err == SQLITE_ROW) {int size = sqlite3_column_count(statements[index]);result += "\n\t\"";result += std::to_string(index_c);result += "\" : {";for (int i = 0; i < size; ++i) {result += "\n\t\t\"";result += sqlite3_column_name(statements[index], i);result += "\" : \"";result += (const char*)sqlite3_column_text(statements[index], i);result += "\",";}result.pop_back();result += "\n\t\t},";}++index_c;} while (err != SQLITE_DONE);if (result != "{")result.pop_back();result += "\n}";sqlite3_reset(statements[index]);return result; });                \
+    }
+#define clean()                           \
+    {                                     \
+        CROW_ROUTE(crowsqlite, "/clean/") \
+        ([&]() {crow::response res; RESPONSE_HEADERS(res); int stmt_size = statements.size(); if(stmt_size == 0) return res; for (int i = 0; i < stmt_size; ++i) {sqlite3_finalize(statements[i]);}statements.clear();return res; });                      \
+    }
 #elif
-#define prepare(){}
-#define use(){}
+#define prepare() \
+    {             \
+    }
+#define use() \
+    {         \
+    }
+#define clean() \
+    {           \
+    }
 #endif
-
-
-
-
 
 /*
 int request_sqlite_callback(void* args, int size, char** content, char** name){
@@ -173,7 +196,6 @@ int request_sqlite(sqlite3*& db, std::string sql, std::string& result, int& crow
 
 int main(int argc, char** argv)
 {
-
     std::string PATH; // NEED absolute path, TODO: Fix this
     int PORT = 12000;
     // argc-=1;
@@ -218,15 +240,17 @@ int main(int argc, char** argv)
 
     prepare();
     use();
+    clean();
+
     sql();
     http_logger_f();
 
     crowsqlite
-    .loglevel(crow::LogLevel::Info)
-    .port(PORT)
-    .server_name("CrowSqlite")
-    .multithreaded()
-    .run();
+        .loglevel(crow::LogLevel::Info)
+        .port(PORT)
+        .server_name("CrowSqlite")
+        .multithreaded()
+        .run();
 
     int stmt_size = statements.size();
     for (int i = 0; i < stmt_size; ++i) {
