@@ -31,7 +31,7 @@ If you enabled `CSQL_HTTP_LOGGER` You could fetch logs using HTTP by using `loca
 
 If you enabled `CSQL_CONSOLE_PRINT` logs will be printed on the console.
 
-If you enabled `CSQL_EXIT_COM` you will be able to shutdown the server thought `/exit/`
+If you enabled `CSQL_EXIT_COM` you will be able to shutdown the server using HTTP by using `locahost:PORT/exit/`
 
 
 # Arguments
