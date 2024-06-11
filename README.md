@@ -52,7 +52,7 @@ Argument List:
 
 Some feature plans for `CrowSqlite` include:
 
-- [ ] Remove absolute path limitation
+- [X] Remove absolute path limitation
 - [ ] Include Protocols other than HTTP
 - [ ] Improve `url_decoder` function so it handles all sorts of possible SQL Queries special characters
 - [ ] Add saving logs to a file when `logs` variable becomes large

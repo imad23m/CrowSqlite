@@ -33,6 +33,7 @@ MIT License | Copyright (c) 2024 Imad Laggoune
 
 #include <string>
 
+
 class http_logger : public crow::ILogHandler {
 public:
     static inline std::string logs;
@@ -203,7 +204,7 @@ int request_sqlite(sqlite3*& db, std::string sql, std::string& result, int& crow
 int main(int argc, char** argv)
 {
     std::string PATH; // NEED absolute path, TODO: Fix this
-    int PORT = 12000;
+    int PORT = 0;
     // argc-=1;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "-d")) {
@@ -220,7 +221,7 @@ int main(int argc, char** argv)
             //  std::cout << "CrowSqlite 0.3v\nMinimal Sqlite Server\n\nArgument List:\n\n\t "
             //             "-d\t\t Absolute path to the database file\n\t -p\t\t Port Number "
             //           "(Default: 12000)\n\t -h\t\t Print help text\n" << std::endl;
-            log_print("CrowSqlite 0.3v\nMinimal Sqlite Server\n\nArgument List:\n\n\t -d\t\t Absolute path to the database file\n\t -p\t\t Port Number (Default: 12000)\n\t -h\t\t Print help text\n");
+            log_print("CrowSqlite 0.3v\nMinimal Sqlite Server\n\nArgument List:\n\n\t -d\t\t Absolute path to the database file\n\t -p\t\t Port Number (Random port if not specified)\n\t -h\t\t Print help text\n");
             return 0;
         }
     }
@@ -236,7 +237,8 @@ int main(int argc, char** argv)
     sqlite3* db;
     std::vector<sqlite3_stmt*> statements;
 
-    if (sqlite3_open_v2(PATH.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr) != SQLITE_OK) {
+
+    if (sqlite3_open_v2(std::filesystem::absolute(PATH).string().c_str(), &db, SQLITE_OPEN_READWRITE, nullptr) != SQLITE_OK) {
         log_print("Failed to open Database File");
         //  throw std::runtime_error("Failed to open Database File");
         return 1;

@@ -10,3 +10,4 @@ build
 test.db
 database.db
 deps/sqlite-amalgamation/sqlite.lib
+NOTES
